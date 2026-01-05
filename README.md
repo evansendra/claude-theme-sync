@@ -24,7 +24,7 @@ That's it! The daemon is now running and will start automatically on login.
 
 1. A lightweight Swift daemon listens to macOS theme change notifications
 2. When the system theme changes, it updates `~/.claude.json` with the matching theme
-3. Your next Claude Code session (or after `/clear`) uses the correct theme
+3. All Claude Code sessions update in real-time
 
 ## Commands
 
