@@ -16,7 +16,7 @@ That's it! The daemon is now running and will start automatically on login.
 
 ## Requirements
 
-- macOS 12.0+
+- macOS
 - Xcode Command Line Tools (`xcode-select --install`)
 - [Claude Code](https://claude.ai/code)
 
