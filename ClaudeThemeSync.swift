@@ -2,6 +2,7 @@ import Foundation
 
 class ClaudeThemeSync {
     private let configPath: String
+    private var lastTheme: String?
 
     init() {
         self.configPath = NSString(string: "~/.claude.json").expandingTildeInPath
@@ -9,9 +10,10 @@ class ClaudeThemeSync {
 
     func start() {
         // Sync immediately on start
+        lastTheme = isDarkModeEnabled() ? "dark" : "light"
         syncTheme()
 
-        // Listen for theme changes
+        // Listen for theme changes via notification
         DistributedNotificationCenter.default().addObserver(
             self,
             selector: #selector(handleThemeChange),
@@ -19,27 +21,43 @@ class ClaudeThemeSync {
             object: nil
         )
 
-        print("Claude Theme Sync started. Listening for theme changes...")
+        // Poll every 5 seconds as fallback (notifications are unreliable under launchd)
+        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.pollTheme()
+        }
+
+        NSLog("Claude Theme Sync started. Listening for theme changes...")
 
         // Keep running
         RunLoop.current.run()
     }
 
     @objc private func handleThemeChange() {
-        print("Theme change detected")
+        NSLog("Theme change detected via notification")
+        let theme = isDarkModeEnabled() ? "dark" : "light"
+        lastTheme = theme
         syncTheme()
+    }
+
+    private func pollTheme() {
+        let theme = isDarkModeEnabled() ? "dark" : "light"
+        if theme != lastTheme {
+            NSLog("Theme change detected via poll")
+            lastTheme = theme
+            syncTheme()
+        }
     }
 
     private func syncTheme() {
         let isDarkMode = isDarkModeEnabled()
         let theme = isDarkMode ? "dark" : "light"
 
-        print("Setting Claude Code theme to: \(theme)")
+        NSLog("Setting Claude Code theme to: \(theme)")
 
         if updateConfig(theme: theme) {
-            print("Successfully updated ~/.claude.json")
+            NSLog("Successfully updated ~/.claude.json")
         } else {
-            print("Failed to update ~/.claude.json")
+            NSLog("Failed to update ~/.claude.json")
         }
     }
 
@@ -54,13 +72,13 @@ class ClaudeThemeSync {
         guard fileManager.fileExists(atPath: configPath),
               let data = fileManager.contents(atPath: configPath),
               var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            print("Error: Could not read ~/.claude.json")
+            NSLog("Error: Could not read ~/.claude.json")
             return false
         }
 
         // Check if theme is already correct
         if let currentTheme = json["theme"] as? String, currentTheme == theme {
-            print("Theme already set to \(theme), skipping update")
+            NSLog("Theme already set to \(theme), skipping update")
             return true
         }
 
@@ -72,7 +90,7 @@ class ClaudeThemeSync {
             withJSONObject: json,
             options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         ) else {
-            print("Error: Could not serialize JSON")
+            NSLog("Error: Could not serialize JSON")
             return false
         }
 
@@ -81,7 +99,7 @@ class ClaudeThemeSync {
             try updatedData.write(to: URL(fileURLWithPath: configPath), options: .atomic)
             return true
         } catch {
-            print("Error writing config: \(error)")
+            NSLog("Error writing config: \(error)")
             return false
         }
     }
